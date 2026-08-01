@@ -13,7 +13,8 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "sync": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/git-sync.ps1"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
