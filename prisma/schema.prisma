@@ -1,0 +1,344 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "fullTextIndex"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model profiles {
+  id            String          @id @default(uuid())
+  name          String
+  email         String          @unique
+  password_hash String
+  role          String          @default("OPERATOR")
+  avatar_url    String?
+  is_active     Boolean         @default(true)
+  created_at    DateTime        @default(now())
+  updated_at    DateTime        @updatedAt
+  deleted_at    DateTime?
+  cash_transactions cash_transactions[]
+  sales         sales[]
+  notifications notifications[]
+
+  @@map("profiles")
+  @@index([email], name: "idx_profiles_email")
+  @@index([deleted_at], name: "idx_profiles_deleted_at")
+}
+
+model roles {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  description String?
+  permissions Json?
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+
+  @@map("roles")
+}
+
+model santri {
+  id            String          @id @default(uuid())
+  nis           String          @unique
+  nama          String
+  kamar         String?
+  asrama        String?
+  wali_santri   String?
+  no_hp_wali    String?
+  saldo         Decimal         @default(0) @db.Decimal(12, 2)
+  is_active     Boolean         @default(true)
+  created_at    DateTime        @default(now())
+  updated_at    DateTime        @updatedAt
+  deleted_at    DateTime?
+  laundry_orders laundry_orders[]
+
+  @@map("santri")
+  @@index([nis], name: "idx_santri_nis")
+  @@index([deleted_at], name: "idx_santri_deleted_at")
+}
+
+model categories {
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  is_active   Boolean     @default(true)
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+  products    products[]
+
+  @@map("categories")
+  @@index([name], name: "idx_categories_name")
+}
+
+model products {
+  id             String          @id @default(uuid())
+  kode_produk    String          @unique
+  barcode        String          @unique
+  nama_produk    String
+  kategori_id    String
+  category       categories      @relation(fields: [kategori_id], references: [id], onDelete: Restrict)
+  satuan        String          @default("pcs")
+  harga_beli     Decimal         @default(0) @db.Decimal(12, 2)
+  harga_jual     Decimal         @default(0) @db.Decimal(12, 2)
+  stok           Int             @default(0)
+  stok_minimum   Int             @default(5)
+  foto           String?
+  status_aktif   Boolean         @default(true)
+  created_at     DateTime        @default(now())
+  updated_at     DateTime        @updatedAt
+  deleted_at     DateTime?
+  sale_items     sale_items[]
+  inventory_transactions inventory_transactions[]
+  price_history  price_history[]
+  purchase_items purchase_items[]
+
+  @@map("products")
+  @@index([kode_produk], name: "idx_products_kode")
+  @@index([barcode], name: "idx_products_barcode")
+  @@index([kategori_id], name: "idx_products_kategori")
+  @@index([stok], name: "idx_products_stok")
+  @@index([deleted_at], name: "idx_products_deleted_at")
+}
+
+model price_history {
+  id         String   @id @default(uuid())
+  product_id String
+  product    products @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  old_price  Decimal  @db.Decimal(12, 2)
+  new_price  Decimal  @db.Decimal(12, 2)
+  changed_by String
+  changed_at DateTime @default(now())
+
+  @@map("price_history")
+  @@index([product_id], name: "idx_price_history_product")
+}
+
+model suppliers {
+  id          String      @id @default(uuid())
+  nama        String
+  alamat      String?
+  no_hp       String?
+  email       String?
+  keterangan  String?
+  is_active   Boolean     @default(true)
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+  deleted_at  DateTime?
+  purchases   purchases[]
+
+  @@map("suppliers")
+  @@index([nama], name: "idx_suppliers_nama")
+}
+
+model purchases {
+  id              String          @id @default(uuid())
+  supplier_id     String
+  supplier        suppliers       @relation(fields: [supplier_id], references: [id], onDelete: Restrict)
+  nomor_faktur    String          @unique
+  tanggal         DateTime        @default(now())
+  total_amount    Decimal         @default(0) @db.Decimal(12, 2)
+  status          String          @default("draft")
+  catatan         String?
+  created_at      DateTime        @default(now())
+  updated_at      DateTime        @updatedAt
+  deleted_at      DateTime?
+  purchase_items  purchase_items[]
+
+  @@map("purchases")
+  @@index([nomor_faktur], name: "idx_purchases_faktur")
+  @@index([supplier_id], name: "idx_purchases_supplier")
+  @@index([tanggal], name: "idx_purchases_tanggal")
+}
+
+model purchase_items {
+  id          String   @id @default(uuid())
+  purchase_id String
+  purchase    purchases @relation(fields: [purchase_id], references: [id], onDelete: Cascade)
+  product_id  String
+  product     products @relation(fields: [product_id], references: [id], onDelete: Restrict)
+  qty         Int
+  harga_beli  Decimal  @db.Decimal(12, 2)
+  subtotal    Decimal  @db.Decimal(12, 2)
+
+  @@map("purchase_items")
+  @@index([purchase_id], name: "idx_purchase_items_purchase")
+  @@index([product_id], name: "idx_purchase_items_product")
+}
+
+model sales {
+  id             String          @id @default(uuid())
+  nomor_invoice  String          @unique
+  tanggal        DateTime        @default(now())
+  total_amount   Decimal         @default(0) @db.Decimal(12, 2)
+  diskon         Decimal         @default(0) @db.Decimal(12, 2)
+  pajak          Decimal         @default(0) @db.Decimal(12, 2)
+  total_bayar    Decimal         @default(0) @db.Decimal(12, 2)
+  metode_bayar   String          @default("tunai")
+  catatan        String?
+  kasir_id       String
+  kasir          profiles        @relation(fields: [kasir_id], references: [id])
+  status         String          @default("completed")
+  created_at     DateTime        @default(now())
+  updated_at     DateTime        @updatedAt
+  deleted_at     DateTime?
+  sale_items     sale_items[]
+
+  @@map("sales")
+  @@index([nomor_invoice], name: "idx_sales_invoice")
+  @@index([kasir_id], name: "idx_sales_kasir")
+  @@index([tanggal], name: "idx_sales_tanggal")
+}
+
+model sale_items {
+  id         String  @id @default(uuid())
+  sale_id    String
+  sale       sales   @relation(fields: [sale_id], references: [id], onDelete: Cascade)
+  product_id String
+  product    products @relation(fields: [product_id], references: [id], onDelete: Restrict)
+  qty        Int
+  harga      Decimal @db.Decimal(12, 2)
+  diskon     Decimal @default(0) @db.Decimal(12, 2)
+  subtotal   Decimal @db.Decimal(12, 2)
+
+  @@map("sale_items")
+  @@index([sale_id], name: "idx_sale_items_sale")
+  @@index([product_id], name: "idx_sale_items_product")
+}
+
+model inventory_transactions {
+  id          String   @id @default(uuid())
+  product_id  String
+  product     products @relation(fields: [product_id], references: [id], onDelete: Restrict)
+  jenis       String   @default("in")
+  qty         Int
+  harga_beli  Decimal  @db.Decimal(12, 2)
+  reference   String?
+  reference_type String?
+  keterangan  String?
+  created_by  String
+  created_at  DateTime @default(now())
+
+  @@map("inventory_transactions")
+  @@index([product_id], name: "idx_inv_tx_product")
+  @@index([jenis], name: "idx_inv_tx_jenis")
+}
+
+model laundry_services {
+  id          String  @id @default(uuid())
+  nama        String  @unique
+  tarif_per_kg Decimal @db.Decimal(12, 2)
+  tarif_potong Decimal @default(0) @db.Decimal(12, 2)
+  express_additional Decimal @default(0) @db.Decimal(12, 2)
+  deskripsi   String?
+  is_active   Boolean @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  laundry_orders laundry_orders[]
+
+  @@map("laundry_services")
+}
+
+model laundry_orders {
+  id              String          @id @default(uuid())
+  kode_order      String          @unique
+  santri_id       String
+  santri          santri          @relation(fields: [santri_id], references: [id], onDelete: Restrict)
+  layanan_id      String
+  layanan         laundry_services @relation(fields: [layanan_id], references: [id], onDelete: Restrict)
+  berat           Decimal         @db.Decimal(10, 2)
+  jumlah_potong   Int             @default(1)
+  total_harga     Decimal         @default(0) @db.Decimal(12, 2)
+  hutang          Decimal         @default(0) @db.Decimal(12, 2)
+  status          String          @default("DITERIMA")
+  catatan         String?
+  tanggal_masuk   DateTime        @default(now())
+  estimasi_selesai DateTime?
+  tanggal_selesai DateTime?
+  diterima_oleh   String?
+  diambil_oleh    String?
+  created_at      DateTime        @default(now())
+  updated_at      DateTime        @updatedAt
+  deleted_at      DateTime?
+  status_logs     laundry_status_logs[]
+
+  @@map("laundry_orders")
+  @@index([kode_order], name: "idx_laundry_kode")
+  @@index([santri_id], name: "idx_laundry_santri")
+  @@index([status], name: "idx_laundry_status")
+  @@index([tanggal_masuk], name: "idx_laundry_tanggal")
+}
+
+model laundry_status_logs {
+  id         String   @id @default(uuid())
+  order_id   String
+  order      laundry_orders @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  status     String
+  keterangan String?
+  changed_by String
+  created_at DateTime @default(now())
+
+  @@map("laundry_status_logs")
+  @@index([order_id], name: "idx_status_logs_order")
+}
+
+model cash_transactions {
+  id          String   @id @default(uuid())
+  jenis       String   @default("masuk")
+  kategori    String
+  jumlah      Decimal  @db.Decimal(12, 2)
+  keterangan  String?
+  referensi   String?
+  created_by  String
+  profile     profiles @relation(fields: [created_by], references: [id])
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("cash_transactions")
+  @@index([jenis], name: "idx_cash_jenis")
+  @@index([kategori], name: "idx_cash_kategori")
+  @@index([created_at], name: "idx_cash_tanggal")
+}
+
+model settings {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  keterangan String?
+  updated_at DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model notifications {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       profiles @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  title      String
+  message    String
+  type       String   @default("info")
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  @@map("notifications")
+  @@index([user_id], name: "idx_notifications_user")
+  @@index([is_read], name: "idx_notifications_read")
+}
+
+model audit_logs {
+  id         String   @id @default(uuid())
+  user_id    String?
+  action     String
+  table_name String
+  record_id  String?
+  old_values Json?
+  new_values Json?
+  ip_address String?
+  created_at DateTime @default(now())
+
+  @@map("audit_logs")
+  @@index([user_id], name: "idx_audit_user")
+  @@index([action], name: "idx_audit_action")
+  @@index([created_at], name: "idx_audit_created")
+}
